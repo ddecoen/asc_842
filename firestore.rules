@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can only access their own leases
+    match /leases/{leaseId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Users can only access journal entries for their own leases
+    match /journalEntries/{entryId} {
+      allow read, write: if request.auth != null && 
+        exists(/databases/$(database)/documents/leases/$(resource.data.leaseId)) &&
+        get(/databases/$(database)/documents/leases/$(resource.data.leaseId)).data.userId == request.auth.uid;
+      allow create: if request.auth != null && 
+        exists(/databases/$(database)/documents/leases/$(request.resource.data.leaseId)) &&
+        get(/databases/$(database)/documents/leases/$(request.resource.data.leaseId)).data.userId == request.auth.uid;
+    }
+    
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
